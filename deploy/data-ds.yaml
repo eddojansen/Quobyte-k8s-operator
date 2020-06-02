@@ -1,0 +1,96 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: data
+  namespace: quobyte
+spec:
+  selector:
+    matchLabels:
+      name: data
+      role: data
+      version: "2"
+  template:
+    metadata:
+      annotations:
+        prometheus.io/scrape: 'true'
+        prometheus.io/path: '/prometheus'
+        prometheus.io/port: '7873'
+      labels:
+        name: data
+        role: data
+        version: "2"
+    spec:
+      containers:
+      - name: quobyte-data
+        image: quay.io/quobyte/quobyte-server:2
+        # imagePullPolicy: Always
+        # resources:
+        #   requests:
+        #     memory: "512Mi"
+        #     cpu: "200m"
+
+        # priviliged is required for full device inspector support
+        securityContext:
+          privileged: true
+        env:
+          - name: QUOBYTE_SERVICE
+            value: data
+          - name: QUOBYTE_REGISTRY
+            value: registry
+          - name: MAX_MEM
+            valueFrom:
+              configMapKeyRef:
+                name: quobyte-config
+                key: data.max_mem
+          - name: MIN_MEM
+            valueFrom:
+              configMapKeyRef:
+                name: quobyte-config
+                key: data.min_mem
+        command:
+          - /bin/bash
+          - -xec
+          - |
+            sed "s/.*MIN_MEM_DATA=.*/MIN_MEM_DATA=${MIN_MEM}/" -i /etc/default/quobyte
+            sed "s/.*MAX_MEM_DATA=.*/MAX_MEM_DATA=${MAX_MEM}/" -i /etc/default/quobyte
+            exec /bin/bash -x /opt/main.sh
+        volumeMounts:
+          - mountPath: /run/udev
+            name: host-udev
+          - mountPath: /lib/modules
+            name: lib-modules
+          - mountPath: /mnt/quobyte
+            name: mnt-quobyte
+          - mountPath: /var/lib/quobyte
+            name: var-lib-quobyte
+            mountPropagation: Bidirectional
+        ports:
+          - name: rpc-tcp
+            containerPort: 7873
+            protocol: TCP
+        readinessProbe:
+          timeoutSeconds: 5
+          httpGet:
+            port: 7873
+            path: /
+        livenessProbe:
+          initialDelaySeconds: 30
+          timeoutSeconds: 5
+          httpGet:
+            port: 7873
+            path: /
+      nodeSelector:
+        quobyte_data: "true"
+      volumes:
+        - name: host-udev
+          hostPath:
+            path: /run/udev
+        - name: lib-modules
+          hostPath:
+            path: /lib/modules
+        - name: mnt-quobyte
+          hostPath:
+            path: /mnt/quobyte
+        - name: var-lib-quobyte
+          hostPath:
+            path: /var/lib/quobyte

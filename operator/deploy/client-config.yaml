@@ -1,0 +1,13 @@
+apiVersion: quobyte.com/v1
+kind: QuobyteClient
+metadata:
+  name: quobyte-client
+  namespace: quobyte
+spec:
+    rollingUpdatesEnabled: true
+    daemonSetName: client 
+    nodes:
+      - node1
+      - node2
+      - node3
+      - node4

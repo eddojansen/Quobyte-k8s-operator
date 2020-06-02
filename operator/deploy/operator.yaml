@@ -1,0 +1,125 @@
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: quobyte-operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: quobyte-operator
+subjects:
+- kind: ServiceAccount
+  name: quobyte-operator
+  namespace: quobyte
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: RoleBinding
+metadata:
+  name: quobyte-operator
+  namespace: quobyte
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: quobyte-operator
+subjects:
+- kind: ServiceAccount
+  name: quobyte-operator
+  namespace: quobyte
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: quobyte-operator
+rules:
+- apiGroups:
+  - apiextensions.k8s.io
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - "*"
+- apiGroups:
+  - quobyte.com
+  resources:
+  - quobyteclients
+  - quobyteservices
+  verbs:
+  - "*"
+- apiGroups: [""]
+  resources:
+  - persistentvolumeclaims
+  verbs: ["get"]
+- apiGroups: [""]
+  resources:
+  - pods
+  verbs: ["list"]
+- apiGroups: ["storage.k8s.io"]
+  resources:
+  - storageclasses
+  verbs: ["get"]
+- apiGroups: [""]
+  resources:
+  - nodes
+  verbs: ["list","get","patch"]
+- apiGroups: [""]
+  resources:
+  - namespaces
+  verbs: ["get"]
+- apiGroups: ["apps"]  
+  resources:
+  - daemonsets
+  verbs: ["get","list","watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: Role
+metadata:
+  namespace: quobyte
+  name: quobyte-operator
+rules:
+- apiGroups: [""]
+  resources:
+  - pods
+  verbs: ["list", "get", "delete", "create", "watch"]
+- apiGroups: ["apps"]
+  resources:
+  - daemonsets
+  verbs: ["get","list","watch"]
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: quobyte-operator
+  namespace: quobyte
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: quobyte-operator
+  namespace: quobyte
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        name: quobyte-operator
+        role: quobyte-operator
+    spec:
+      serviceAccountName: quobyte-operator
+      containers:
+      - name: operator
+        image: quay.io/quobyte/k8s-operator:2
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 7878
+          protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: quobyte-operator
+  namespace: quobyte
+spec:
+  ports:
+    - name: http
+      port: 7878
+      protocol: TCP
+  selector:
+    role: quobyte-operator
